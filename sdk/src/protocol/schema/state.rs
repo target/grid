@@ -109,6 +109,69 @@ impl FromNative<LatLong> for protos::schema_state::LatLong {
 impl IntoProto<protos::schema_state::LatLong> for LatLong {}
 impl IntoNative<LatLong> for protos::schema_state::LatLong {}
 
+#[derive(Debug)]
+pub enum LatLongBuildError {
+    MissingField(String),
+}
+
+impl StdError for LatLongBuildError {
+    fn description(&self) -> &str {
+        match *self {
+            LatLongBuildError::MissingField(ref msg) => msg,
+        }
+    }
+
+    fn cause(&self) -> Option<&dyn StdError> {
+        match *self {
+            LatLongBuildError::MissingField(_) => None,
+        }
+    }
+}
+
+impl std::fmt::Display for LatLongBuildError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            LatLongBuildError::MissingField(ref s) => write!(f, "MissingField: {}", s),
+        }
+    }
+}
+
+/// Builder used to create a LatLong
+#[derive(Default, Clone, PartialEq)]
+pub struct LatLongBuilder {
+    pub latitude: i64,
+    pub longitude: i64,
+}
+
+impl LatLongBuilder {
+    pub fn new() -> Self {
+        LatLongBuilder::default()
+    }
+
+    pub fn with_lat_long(mut self, latitude: i64, longitude: i64) -> LatLongBuilder {
+        self.latitude = latitude;
+        self.longitude = longitude;
+        self
+    }
+
+    pub fn build(self) -> Result<LatLong, LatLongBuildError> {
+        let latitude = self.latitude;
+        let longitude = self.longitude;
+
+        // Return error if default values haven't been overridden
+        if latitude == 0 && longitude == 0 {
+            return Err(LatLongBuildError::MissingField(
+                "Need to set latitude and longitude values".to_string(),
+            ));
+        }
+
+        Ok(LatLong {
+            latitude,
+            longitude,
+        })
+    }
+}
+
 /// Native implementation of PropertyDefinition
 #[derive(Debug, Clone, PartialEq)]
 pub struct PropertyDefinition {
