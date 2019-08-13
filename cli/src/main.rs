@@ -260,10 +260,10 @@ fn run() -> Result<(), CliError> {
                 products::do_create_products(&url, key, wait, m.value_of("path").unwrap())?
             }
             ("update", Some(m)) => {
-                products::do_update_product(&url, key, wait, m.value_of("path").unwrap())?
+                products::do_update_products(&url, key, wait, m.value_of("path").unwrap())?
             }
             ("delete", Some(m)) => {
-                products::do_delete_product(&url, key, wait, m.value_of("path").unwrap())?
+                products::do_delete_products(&url, key, wait, m.value_of("path").unwrap())?
             }
             ("list", Some(_)) => products::do_list_products(&url)?,
             ("show", Some(m)) => {
