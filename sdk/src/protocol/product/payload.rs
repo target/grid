@@ -167,7 +167,7 @@ impl ProductPayloadBuilder {
     pub fn new() -> Self {
         ProductPayloadBuilder::default()
     }
-    pub fn with_action(mut self, action: Action) -> ProductPayloadBuilder {
+    pub fn with_action(mut self, action: Action) -> Self {
         self.action = Some(action);
         self
     }

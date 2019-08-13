@@ -17,11 +17,12 @@ use crate::transaction::{
     product_batch_builder, GRID_PRODUCT_NAMESPACE, GRID_SCHEMA_NAMESPACE, PIKE_NAMESPACE,
 };
 use grid_sdk::protocol::product::payload::{
-    Action, ProductCreateAction, ProductCreateActionBuilder, ProductUpdateAction, ProductUpdateActionBuilder, ProductPayload, ProductPayloadBuilder,
-    ProductDeleteAction, ProductDeleteActionBuilder,
+    Action, ProductCreateAction, ProductCreateActionBuilder, ProductDeleteAction,
+    ProductDeleteActionBuilder, ProductPayload, ProductPayloadBuilder, ProductUpdateAction,
+    ProductUpdateActionBuilder,
 };
 use grid_sdk::protocol::product::state::ProductType;
-use grid_sdk::protocol::schema::state::{DataType, PropertyValue, PropertyValueBuilder};
+use grid_sdk::protocol::schema::state::PropertyValue;
 use grid_sdk::protos::IntoProto;
 use reqwest::Client;
 
@@ -29,12 +30,13 @@ use crate::error::CliError;
 use serde::Deserialize;
 
 use crate::yaml_parser::{
-    parse_value_as_boolean, parse_value_as_bytes, parse_value_as_i64, parse_value_as_lat_long,
-    parse_value_as_sequence, parse_value_as_string, parse_value_as_u32, parse_value_as_data_type, parse_value_as_product_type
+    parse_value_as_product_type, parse_value_as_repeated_property_values, parse_value_as_sequence,
+    parse_value_as_string,
 };
 
-use serde_yaml::{Mapping, Value};
 use sawtooth_sdk::messages::batch::BatchList;
+use serde_yaml::Mapping;
+use std::time::{SystemTime, SystemTimeError, UNIX_EPOCH};
 
 #[derive(Debug, Deserialize)]
 pub struct GridProduct {
@@ -59,7 +61,7 @@ pub struct GridPropertyValue {
 
 /**
  * Print the fields for a given product
- * 
+ *
  * product - Product to be printed
  */
 pub fn display_product(product: &GridProduct) {
@@ -72,7 +74,7 @@ pub fn display_product(product: &GridProduct) {
 
 /**
  * Iterate through all fields of a Property Value and print the given value
- * 
+ *
  * properties - Property values to be printed
  */
 pub fn display_product_property_definitions(properties: &[GridPropertyValue]) {
@@ -95,7 +97,7 @@ pub fn display_product_property_definitions(properties: &[GridPropertyValue]) {
 
 /**
  * Print all products in state
- * 
+ *
  * url - Url for the REST API
  */
 pub fn do_list_products(url: &str) -> Result<(), CliError> {
@@ -110,7 +112,7 @@ pub fn do_list_products(url: &str) -> Result<(), CliError> {
 
 /**
  * Print all products in state
- * 
+ *
  * url - Url for the REST API
  * product_id - e.g. GTIN
  */
@@ -126,7 +128,7 @@ pub fn do_show_product(url: &str, product_id: &str) -> Result<(), CliError> {
 
 /**
  * Create a new product
- * 
+ *
  * url - Url for the REST API
  * key - Signing key of the agent
  * wait -
@@ -145,7 +147,7 @@ pub fn do_create_products(
 
 /**
  * Update an existing product
- * 
+ *
  * url - Url for the REST API
  * key - Signing key of the agent
  * wait -
@@ -164,7 +166,7 @@ pub fn do_update_products(
 
 /**
  * Delete an existing product
- * 
+ *
  * url - Url for the REST API
  * key - Signing key of the agent
  * wait -
@@ -183,11 +185,14 @@ pub fn do_delete_products(
 
 /**
  * Build a batch from our Product Payloads. The CLI is responsible for batch creation.
- * 
+ *
  * payloads - Product payloads
  * key - Signing key of the agent
  */
-pub fn build_batches_from_payloads(payloads: Vec<ProductPayload>, key: Option<String>) -> Result<BatchList, CliError> {
+pub fn build_batches_from_payloads(
+    payloads: Vec<ProductPayload>,
+    key: Option<String>,
+) -> Result<BatchList, CliError> {
     let mut batch_list_builder = product_batch_builder(key);
     for payload in payloads {
         batch_list_builder = batch_list_builder.add_transaction(
@@ -205,7 +210,7 @@ pub fn build_batches_from_payloads(payloads: Vec<ProductPayload>, key: Option<St
 
 /**
  * Iterate through a list of products in a yaml file to build our payloads.
- * 
+ *
  * path: Path to the yaml file
  * action: Determines the type of product payload to generate
  */
@@ -243,7 +248,7 @@ fn parse_product_yaml(path: &str, action: Action) -> Result<Vec<ProductPayload>,
                         )
                     })?;
 
-                let property_values = parse_value_as_properties(&properties)?;
+                let property_values = parse_value_as_repeated_property_values(&properties)?;
 
                 generate_create_product_payload(product_type, &product_id, &owner, &property_values)
             })
@@ -273,7 +278,7 @@ fn parse_product_yaml(path: &str, action: Action) -> Result<Vec<ProductPayload>,
                         )
                     })?;
 
-                let property_values = parse_value_as_properties(&properties)?;
+                let property_values = parse_value_as_repeated_property_values(&properties)?;
 
                 generate_update_product_payload(product_type, &product_id, &property_values)
             })
@@ -302,112 +307,8 @@ fn parse_product_yaml(path: &str, action: Action) -> Result<Vec<ProductPayload>,
 }
 
 /**
- * Given a yaml key/val, parse the val as a list of Property Value objects
- * 
- * properties - One or more yaml objects to be parsed as a Property Value
- */
-fn parse_value_as_properties(properties: &[Value]) -> Result<Vec<PropertyValue>, CliError> {
-    properties
-        .iter()
-        .map(|value| {
-            let property = value.as_mapping().ok_or_else(|| {
-                CliError::InvalidYamlError(
-                    "Failed to parse schema property definition.".to_string(),
-                )
-            })?;
-            parse_value_as_property_values(property)
-        })
-        .collect()
-}
-
-/**
- * Given a yaml object, parse it as a Property Value
- * 
- * property - Yaml object we have determined to be a Property Value
- */
-fn parse_value_as_property_values(property: &Mapping) -> Result<PropertyValue, CliError> {
-    let data_type = parse_value_as_data_type(&parse_value_as_string(property, "data_type")?.ok_or_else(
-        || {
-            CliError::InvalidYamlError(
-                "Missing `data_type` field for property definition.".to_string(),
-            )
-        },
-    )?)?;
-
-    let mut property_value = PropertyValueBuilder::new()
-        .with_name(parse_value_as_string(property, "name")?.ok_or_else(|| {
-            CliError::InvalidYamlError(
-                "Missing `name` field for product property value.".to_string(),
-            )
-        })?)
-        .with_data_type(data_type.clone());
-
-    property_value = match data_type {
-        DataType::Bytes => property_value.with_bytes_value(
-            parse_value_as_bytes(property, "bytes_value")?.ok_or_else(|| {
-                CliError::InvalidYamlError(
-                    "Missing `bytes_value` field for property value with type BYTES.".to_string(),
-                )
-            })?,
-        ),
-        DataType::Boolean => property_value.with_boolean_value(
-            parse_value_as_boolean(property, "boolean_value")?.ok_or_else(|| {
-                CliError::InvalidYamlError(
-                    "Missing `boolean_value` field for property value with type BOOLEAN."
-                        .to_string(),
-                )
-            })?,
-        ),
-        DataType::Number => property_value.with_number_value(
-            parse_value_as_i64(property, "number_value")?.ok_or_else(|| {
-                CliError::InvalidYamlError(
-                    "Missing `number_value` field for property value with type NUMBER.".to_string(),
-                )
-            })?,
-        ),
-        DataType::String => property_value.with_string_value(
-            parse_value_as_string(property, "string_value")?.ok_or_else(|| {
-                CliError::InvalidYamlError(
-                    "Missing `string_value` field for property value with type STRING.".to_string(),
-                )
-            })?,
-        ),
-        DataType::Enum => property_value.with_enum_value(
-            parse_value_as_u32(property, "enum_value")?.ok_or_else(|| {
-                CliError::InvalidYamlError(
-                    "Missing `enum_value` field for property value with type ENUM.".to_string(),
-                )
-            })?,
-        ),
-        DataType::Struct => {
-            // Properties is a repeated field, so we recursively call `parse_value_as_properties`
-            let properties = parse_value_as_properties(
-                property
-                    .get(&Value::String("struct_values".to_string()))
-                    .unwrap()
-                    .as_sequence()
-                    .unwrap(),
-            )?;
-            property_value.with_struct_values(properties)
-        }
-        DataType::LatLong => property_value.with_lat_long_value(
-            parse_value_as_lat_long(property, "lat_long_value")?.ok_or_else(|| {
-                CliError::InvalidYamlError(
-                    "Missing `lat_long_value` field for property value with type LATLONG."
-                        .to_string(),
-                )
-            })?,
-        ),
-    };
-
-    property_value.build().map_err(|err| {
-        CliError::PayloadError(format!("Failed to build property definition: {}", err))
-    })
-}
-
-/**
  * Generate the payload needed to create a new product
- * 
+ *
  * product_type - e.g. GS1
  * product_id - e.g. GTIN
  * owner - Identifier of the organization responsible for maintaining the product
@@ -419,7 +320,7 @@ fn generate_create_product_payload(
     owner: &str,
     properties: &[PropertyValue],
 ) -> Result<ProductPayload, CliError> {
-    let mut product_payload = ProductPayloadBuilder::new();
+    let product_payload = ProductPayloadBuilder::new();
 
     let product_create_action_builder = ProductCreateActionBuilder::new()
         .with_product_id(product_id.to_string())
@@ -431,16 +332,26 @@ fn generate_create_product_payload(
         CliError::PayloadError(format!("Failed to build product create payload: {}", err))
     })?;
 
-    product_payload = product_payload.with_action(Action::ProductCreate(product_create_action));
+    let timestamp = match get_unix_utc_timestamp() {
+        Ok(timestamp) => timestamp,
+        Err(err) => {
+            return Err(CliError::PayloadError(format!(
+                "Failed to build product create payload: {}",
+                err
+            )))
+        }
+    };
 
-    product_payload.build().map_err(|err| {
-        CliError::PayloadError(format!("Failed to build product payload: {}", err))
-    })
+    product_payload
+        .with_timestamp(timestamp)
+        .with_action(Action::ProductCreate(product_create_action))
+        .build()
+        .map_err(|err| CliError::PayloadError(format!("Failed to build product payload: {}", err)))
 }
 
 /**
  * Generate the payload needed to update an existing product
- * 
+ *
  * product_type - e.g. GS1
  * product_id - e.g. GTIN
  * properties - One or more property values
@@ -450,7 +361,7 @@ fn generate_update_product_payload(
     product_id: &str,
     properties: &[PropertyValue],
 ) -> Result<ProductPayload, CliError> {
-    let mut product_payload = ProductPayloadBuilder::new();
+    let product_payload = ProductPayloadBuilder::new();
 
     let product_update_action_builder = ProductUpdateActionBuilder::new()
         .with_product_id(product_id.to_string())
@@ -461,34 +372,228 @@ fn generate_update_product_payload(
         CliError::PayloadError(format!("Failed to build product update payload: {}", err))
     })?;
 
-    product_payload = product_payload.with_action(Action::ProductUpdate(product_update_action));
+    let timestamp = match get_unix_utc_timestamp() {
+        Ok(timestamp) => timestamp,
+        Err(err) => {
+            return Err(CliError::PayloadError(format!(
+                "Failed to build product create payload: {}",
+                err
+            )))
+        }
+    };
 
-    product_payload.build().map_err(|err| {
-        CliError::PayloadError(format!("Failed to build product payload: {}", err))
-    })
+    product_payload
+        .with_timestamp(timestamp)
+        .with_action(Action::ProductUpdate(product_update_action))
+        .build()
+        .map_err(|err| CliError::PayloadError(format!("Failed to build product payload: {}", err)))
 }
 
 /**
  * Generate the payload needed to delete an existing product
- * 
+ *
  * product_type - e.g. GS1
  * product_id - e.g. GTIN
  */
-fn generate_delete_product_payload(product_type: ProductType, product_id: &str) -> Result<ProductPayload, CliError> {
-    let mut product_payload = ProductPayloadBuilder::new();
+fn generate_delete_product_payload(
+    product_type: ProductType,
+    product_id: &str,
+) -> Result<ProductPayload, CliError> {
+    let product_payload = ProductPayloadBuilder::new();
 
-    let product_delete_action_builder =
-        ProductDeleteActionBuilder::new()
-            .with_product_id(product_id.to_string())
-            .with_product_type(product_type);
+    let product_delete_action_builder = ProductDeleteActionBuilder::new()
+        .with_product_id(product_id.to_string())
+        .with_product_type(product_type);
 
     let product_delete_action = product_delete_action_builder.build().map_err(|err| {
         CliError::PayloadError(format!("Failed to build product delete payload: {}", err))
     })?;
 
-    product_payload = product_payload.with_action(Action::ProductDelete(product_delete_action));
+    let timestamp = match get_unix_utc_timestamp() {
+        Ok(timestamp) => timestamp,
+        Err(err) => {
+            return Err(CliError::PayloadError(format!(
+                "Failed to build product create payload: {}",
+                err
+            )))
+        }
+    };
 
-    product_payload.build().map_err(|err| {
-        CliError::PayloadError(format!("Failed to build product delete payload: {}", err))
-    })
+    product_payload
+        .with_action(Action::ProductDelete(product_delete_action))
+        .with_timestamp(timestamp)
+        .build()
+        .map_err(|err| {
+            CliError::PayloadError(format!("Failed to build product delete payload: {}", err))
+        })
+}
+
+fn get_unix_utc_timestamp() -> Result<u64, SystemTimeError> {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(duration) => Ok(duration.as_secs()),
+        Err(err) => Err(err),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use grid_sdk::protocol::product::payload::{Action, ProductPayload};
+    use grid_sdk::protocol::product::state::ProductType;
+    use grid_sdk::protocol::schema::state::{DataType, PropertyValueBuilder};
+    use std::fs::{remove_file, File};
+    use std::io::Write;
+    use std::{env, panic, thread};
+
+    static PAPER_YAML_EXAMPLE: &[u8; 582] = br##"- product_type: "GS1"
+  product_id: "723382885088"
+  owner: "Willcopy"
+  properties:
+    - name: "length"
+      data_type: "NUMBER"
+      number_value: 8
+    - name: "width"
+      data_type: "NUMBER"
+      number_value: 11
+    - name: "depth"
+      data_type: "NUMBER"
+      number_value: 1
+- product_type: "GS1"
+  product_id: "723382885088"
+  owner: "Willcopy"
+  properties:
+    - name: "length"
+      data_type: "NUMBER"
+      number_value: 8
+    - name: "width"
+      data_type: "NUMBER"
+      number_value: 11
+    - name: "depth"
+      data_type: "NUMBER"
+      number_value: 1 "##;
+
+    /*
+     * Verifies parse_product_yaml returns valids ProductPayload with ProductCreateAction set from a yaml
+     * containing a multiple Product definitions
+     */
+    #[test]
+    fn test_valid_yaml_create_multiple_products() {
+        run_test(|test_yaml_file_path| {
+            write_yaml_file(test_yaml_file_path);
+
+            let payload = parse_product_yaml(
+                test_yaml_file_path,
+                Action::ProductCreate(ProductCreateAction::default()),
+            )
+            .expect("Error parsing yaml");
+
+            assert_eq!(make_create_product_payload(), payload[0]);
+            assert_eq!(make_create_product_payload(), payload[1]);
+        })
+    }
+
+    /*
+     * Verifies parse_product_yaml returns valids ProductPayload with ProductUpdateAction set from a yaml
+     * containing a multiple Product definitions
+     */
+    #[test]
+    fn test_valid_yaml_update_multiple_products() {
+        run_test(|test_yaml_file_path| {
+            write_yaml_file(test_yaml_file_path);
+
+            let payload = parse_product_yaml(
+                test_yaml_file_path,
+                Action::ProductUpdate(ProductUpdateAction::default()),
+            )
+            .expect("Error parsing yaml");
+
+            assert_eq!(make_update_product_payload(), payload[0]);
+            assert_eq!(make_update_product_payload(), payload[1]);
+        })
+    }
+
+    /*
+     * Verifies parse_product_yaml returns valids ProductPayload with ProductUpdateAction set from a yaml
+     * containing a multiple Product definitions
+     */
+    #[test]
+    fn test_valid_yaml_delete_multiple_products() {
+        run_test(|test_yaml_file_path| {
+            write_yaml_file(test_yaml_file_path);
+
+            let payload = parse_product_yaml(
+                test_yaml_file_path,
+                Action::ProductDelete(ProductDeleteAction::default()),
+            )
+            .expect("Error parsing yaml");
+
+            assert_eq!(make_delete_product_payload(), payload[0]);
+            assert_eq!(make_delete_product_payload(), payload[1]);
+        })
+    }
+
+    fn write_yaml_file(file_path: &str) {
+        let mut file = File::create(file_path).expect("Error creating test product yaml file.");
+
+        file.write_all(PAPER_YAML_EXAMPLE)
+            .expect("Error writting example product yaml.");
+    }
+
+    fn make_update_product_payload() -> ProductPayload {
+        generate_update_product_payload(ProductType::GS1, "723382885088", &create_property_values())
+            .unwrap()
+    }
+
+    fn make_delete_product_payload() -> ProductPayload {
+        generate_delete_product_payload(ProductType::GS1, "723382885088").unwrap()
+    }
+
+    fn make_create_product_payload() -> ProductPayload {
+        generate_create_product_payload(
+            ProductType::GS1,
+            "723382885088",
+            "Willcopy",
+            &create_property_values(),
+        )
+        .unwrap()
+    }
+
+    fn create_property_values() -> Vec<PropertyValue> {
+        vec![
+            make_number_property_value("length", 8),
+            make_number_property_value("width", 11),
+            make_number_property_value("depth", 1),
+        ]
+    }
+
+    fn make_number_property_value(name: &str, number_value: i64) -> PropertyValue {
+        PropertyValueBuilder::new()
+            .with_name(name.to_string())
+            .with_data_type(DataType::Number)
+            .with_number_value(number_value)
+            .build()
+            .unwrap()
+    }
+
+    fn run_test<T>(test: T) -> ()
+    where
+        T: FnOnce(&str) -> () + panic::UnwindSafe,
+    {
+        let test_yaml_file = temp_yaml_file_path();
+
+        let test_path = test_yaml_file.clone();
+        let result = panic::catch_unwind(move || test(&test_path));
+
+        remove_file(test_yaml_file).unwrap();
+
+        assert!(result.is_ok())
+    }
+
+    fn temp_yaml_file_path() -> String {
+        let mut temp_dir = env::temp_dir();
+
+        let thread_id = thread::current().id();
+        temp_dir.push(format!("test_parse_product-{:?}.yaml", thread_id));
+        temp_dir.to_str().unwrap().to_string()
+    }
 }
