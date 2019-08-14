@@ -212,7 +212,7 @@ pub struct GridPropertyDefinition {
 #[postgres(type_name = "latlong")]
 pub struct LatLong;
 
-#[derive(Debug, PartialEq, FromSqlRow, AsExpression, Clone)]
+#[derive(Debug, Default, PartialEq, FromSqlRow, AsExpression, Clone)]
 #[sql_type = "LatLong"]
 pub struct LatLongValue(pub i64, pub i64);
 
