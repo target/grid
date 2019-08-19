@@ -1,0 +1,13 @@
+- product_type: "GS1"
+  product_id: "723382885088"
+  owner: "Willcopy"
+  properties:
+    - name: "length"
+      data_type: "NUMBER"
+      number_value: 8
+    - name: "width"
+      data_type: "NUMBER"
+      number_value: 11
+    - name: "depth"
+      data_type: "NUMBER"
+      number_value: 1
