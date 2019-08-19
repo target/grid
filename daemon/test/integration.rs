@@ -107,4 +107,33 @@ mod integration {
         assert_eq!(print_message, &PRINT_MESSAGE)
 
     }
+
+    #[test]
+    fn test_product_create() {
+        let YAML_FILE: &str = "test_product.yaml";
+        let PRODUCT_ID: &str = "723382885088"
+        let PRODUCT_TYPE: &str = "GS1"
+        let PRINT_MESSAGE: &str = "whatever this returns, formatted"; //todo! add `grid product show`
+        let mut cmd_create = Command::new("grid");
+        cmd_create
+            .arg("product")
+            .arg("create")
+            .args(&["path", YAML_FILE]);
+        cmd_create.assert().success();
+        let mut cmd_show = Command::new("grid")
+        cmd_show
+            .arg("product")
+            .arg("show")
+            .args(&["product_id", PRODUCT_ID])
+            .args(&["product_type", PRODUCT_TYPE]);
+        let print_message = String::from_utf8(
+            cmd_show
+                .assert()
+                .success()
+                .get_output()
+                .stdout
+        )
+        .expect("Found invalid UTF-8");
+        assert_eq!(print_message, &PRINT_MESSAGE)
+    }
 }
