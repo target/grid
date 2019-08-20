@@ -21,7 +21,6 @@ edition = "2018"
 [dependencies]
 actix = "0.7"
 actix-web = "0.7"
-assert_cmd = "0.11"
 clap = "2"
 ctrlc = "3.0"
 diesel = { version = "1.0.0", features = ["postgres", "r2d2", "serde_json"] }
