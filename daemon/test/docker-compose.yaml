@@ -46,4 +46,6 @@ services:
             done
             cd daemon
             cargo test --features test-api --  --test-threads=1
+            cd ../cli
+            cargo test -- --test-threads=1
             "
