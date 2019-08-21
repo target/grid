@@ -1,0 +1,12 @@
+- product_type: "GS1"
+  product_id: "762111177704"
+  properties:
+    - name: "length2"
+      data_type: "NUMBER"
+      number_value: 8
+    - name: "width2"
+      data_type: "NUMBER"
+      number_value: 11
+    - name: "depth2"
+      data_type: "NUMBER"
+      number_value: 1
