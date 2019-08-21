@@ -35,7 +35,7 @@ pub fn hash(to_hash: &str, num: usize) -> String {
 }
 
 pub fn make_product_address(product_id: &str) -> String {
-    get_product_prefix() + PRODUCT + STANDARD + &hash(product_id, 70)
+    get_product_prefix() + PRODUCT + STANDARD + &hash(product_id, 60)
 }
 
 /// Computes the address a Pike Agent is stored at based on its public_key
