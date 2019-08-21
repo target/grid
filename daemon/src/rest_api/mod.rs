@@ -70,10 +70,10 @@ fn create_app(
     .resource("/organization/{id}", |r| {
         r.method(Method::GET).with_async(fetch_organization)
     })
-    .resource("/products", |r| {
+    .resource("/product", |r| {
         r.method(Method::GET).with_async(list_products)
     })
-    .resource("/products/{id}", |r| {
+    .resource("/product/{id}", |r| {
         r.method(Method::GET).with_async(fetch_product)
     })
     .resource("/schema", |r| {

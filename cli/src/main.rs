@@ -163,7 +163,7 @@ fn run() -> Result<(), CliError> {
         _ => simple_logger::init_with_level(log::Level::Debug),
     }?;
 
-    let url = matches.value_of("url").unwrap_or("http://localhost:8000");
+    let url = matches.value_of("url").unwrap_or("http://gridd:8080");
 
     let key = matches.value_of("key").map(ToString::to_string);
 

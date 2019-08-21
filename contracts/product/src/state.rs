@@ -117,6 +117,7 @@ impl<'a> ProductState<'a> {
     // Currently product_id = gtin
     pub fn remove_product(&self, product_id: &str) -> Result<(), ApplyError> {
         let address = make_product_address(product_id);
+        println!("address: {}", address);
         let d = self.context.get_state_entry(&address)?;
         let products = match d {
             Some(packed) => match ProductList::from_bytes(packed.as_slice()) {

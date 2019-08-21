@@ -59,15 +59,15 @@ COPY cli/Cargo.toml /build/cli/Cargo.toml
 
 # Do a release build to cache dependencies
 WORKDIR /build/daemon
-RUN cargo build --release
+RUN cargo build
 WORKDIR /build/cli
-RUN cargo build --release
+RUN cargo build
 
 # Remove the auto-generated .rs files and the built files
 WORKDIR /build
 RUN rm */src/*.rs
-RUN rm daemon/target/release/gridd* daemon/target/release/deps/gridd*
-RUN rm cli/target/release/grid* cli/target/release/deps/grid*
+RUN rm daemon/target/debug/gridd* daemon/target/debug/deps/gridd*
+RUN rm cli/target/debug/grid* cli/target/debug/deps/grid*
 
 # Copy over source files
 COPY sdk/src /build/sdk/src
@@ -77,9 +77,9 @@ COPY cli/src /build/cli/src
 
 # Build the projects
 WORKDIR /build/daemon
-RUN cargo build --release
+RUN cargo build
 WORKDIR /build/cli
-RUN cargo build --release
+RUN cargo build
 
 # create the standalone image
 FROM ubuntu:bionic
@@ -89,7 +89,7 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=BUILDER /build/daemon/target/release/gridd /usr/sbin/gridd
-COPY --from=BUILDER /build/cli/target/release/grid /usr/bin/grid
+COPY --from=BUILDER /build/daemon/target/debug/gridd /usr/sbin/gridd
+COPY --from=BUILDER /build/cli/target/debug/grid /usr/bin/grid
 
 CMD ["gridd"]
