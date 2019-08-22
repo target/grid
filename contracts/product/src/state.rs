@@ -131,30 +131,39 @@ impl<'a> ProductState<'a> {
             None => vec![],
         };
 
-        // Collect a new vector of products without the removed item
-        let product_list = ProductListBuilder::new()
-            .with_products(
-                products
-                    .into_iter()
-                    .filter(|p| p.product_id() != product_id)
-                    .collect::<Vec<_>>(),
-            )
-            .build()
-            .map_err(|err| {
-                ApplyError::InvalidTransaction(format!("Cannot build product list: {:?}", err))
-            })?;
+        // If there is only a single product at the address, delete the state entry
+        // Else, set the state entry with the given product removed from the product list
+        if products.len() == 1 {
+            self.context
+                .delete_state_entries(&[address])
+                .map_err(|err| ApplyError::InternalError(format!("{}", err)))?;
+        } else {
+            // Collect a new vector of products without the removed item
+            let product_list = ProductListBuilder::new()
+                .with_products(
+                    products
+                        .into_iter()
+                        .filter(|p| p.product_id() != product_id)
+                        .collect::<Vec<_>>(),
+                )
+                .build()
+                .map_err(|err| {
+                    ApplyError::InvalidTransaction(format!("Cannot build product list: {:?}", err))
+                })?;
 
-        let serialized = match product_list.into_bytes() {
-            Ok(serialized) => serialized,
-            Err(_) => {
-                return Err(ApplyError::InternalError(String::from(
-                    "Cannot serialize product list",
-                )));
-            }
-        };
-        self.context
-            .set_state_entry(address, serialized)
-            .map_err(|err| ApplyError::InternalError(format!("{}", err)))?;
+            let serialized = match product_list.into_bytes() {
+                Ok(serialized) => serialized,
+                Err(_) => {
+                    return Err(ApplyError::InternalError(String::from(
+                        "Cannot serialize product list",
+                    )));
+                }
+            };
+            self.context
+                .set_state_entry(address, serialized)
+                .map_err(|err| ApplyError::InternalError(format!("{}", err)))?;
+        }
+
         Ok(())
     }
 
