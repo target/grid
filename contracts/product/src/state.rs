@@ -164,11 +164,7 @@ impl<'a> ProductState<'a> {
                 .set_state_entry(address, serialized)
                 .map_err(|err| ApplyError::InternalError(format!("{}", err)))?;
         }
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> Implement state entry deletion on Product contract
         Ok(())
     }
 
