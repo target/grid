@@ -1,5 +1,5 @@
 #!/bin/bash
-docker cp /Users/z003bz5/blockchain/grid/cli/test_scripts/create.yaml gridd:/
+docker cp ./create.yaml gridd:/
 docker exec gridd /bin/bash -c 'grid keygen --force; \
  grid organization create "314156" "target" "target hq" --metadata "gs1_company_prefixes=314"; \
  PUB_KEY="$(cat ~/.grid/keys/root.pub)"; \

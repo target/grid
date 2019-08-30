@@ -200,7 +200,7 @@ pub fn build_batches_from_payloads(
             &[
                 PIKE_NAMESPACE.to_string(),
                 GRID_SCHEMA_NAMESPACE.to_string(),
-                GRID_PRODUCT_NAMESPACE.to_string()
+                GRID_PRODUCT_NAMESPACE.to_string(),
             ],
             &[GRID_PRODUCT_NAMESPACE.to_string()],
         )?;
